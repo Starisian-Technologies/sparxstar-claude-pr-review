@@ -101,7 +101,7 @@ The workflow runs as two jobs to keep the privileged registry credential away fr
 The reviewer only reads the registries — there is no contract-sync or write-back.
 
 ## Determinism and safeguards
-- Callers should use `pull_request` and/or `push` triggers — **never `pull_request_target`**. The review job checks out PR-head code, and `pull_request_target` would run it with a read-write token in the base-repo context. `workflow_call` alone does not restrict invocation to these events; unsupported events are rejected at runtime
+- Callers must use the `pull_request` trigger — **never `pull_request_target`**, and not `push`: the `Get PR diff` step exits 1 when the event payload carries no pull request number, so a push run fails before any review is produced. The review job checks out PR-head code, and `pull_request_target` would run it with a read-write token in the base-repo context. `workflow_call` alone does not restrict invocation to these events; unsupported events are rejected at runtime
 - **Privilege split (CodeQL hardening):** the composer-resolver GitHub App key — the only credential that can reach private registries — lives solely in the `build-context` job, which never checks out PR-head code. The `review` job checks out PR-head code but holds no App key and only *reads* those files as data (no build/install/script execution); trusted context crosses between jobs via artifact only
 - **Private callers only:** the trusted context (private ADR/spec content) is staged as a workflow artifact, which would be downloadable by anyone on a public repository. `build-context` fails fast (before minting any token) unless the caller repository is private
 - Diff truncation at 80KB and context truncation at 50KB with explicit notices; authoritative ADR/spec/reference context is placed first so it survives the cap, and trailing repo-local context is truncated first
@@ -131,7 +131,7 @@ The reviewer only reads the registries — there is no contract-sync or write-ba
 If a remote workflow run (in a caller repo) fails while checking out `.spx-workflow-repo` with `upload-pack: not our ref` (e.g. trying to fetch `refs/pull/<n>/merge`), ensure the reusable workflow is up to date. Current versions resolve the reference-docs checkout ref from `github.job_workflow_sha` — the commit SHA of *this* reusable workflow file, resolved by GitHub itself rather than string-parsed from a ref — so cross-repository calls always pin to a valid commit of this repository. Earlier versions read `github.workflow_ref` (the *caller's* top-level ref, e.g. its PR ref on a `pull_request` run) and later `github.job_workflow_ref` parsed for a tag/branch name; both could, in edge cases, hand `actions/checkout` a ref that only exists in the caller's repository.
 
 ### Change diff is empty
-Confirm the caller uses `pull_request` or `push`, and that the event includes code changes.
+Confirm the caller uses `pull_request` (not `push` — it cannot supply a PR number), and that the event includes code changes.
 
 ### Claude API request failed
 Verify `ANTHROPIC_API_KEY` exists and is valid in repo/org secrets.

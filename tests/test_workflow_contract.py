@@ -48,8 +48,20 @@ class WorkflowContractTests(unittest.TestCase):
     def test_workflow_mints_scoped_registry_read_tokens(self) -> None:
         # SHA-pinned, not @v3: these steps run a third-party action while holding
         # the App private key, and a major tag can be moved by its owner.
-        self.assertIn("actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1", self.workflow)
-        self.assertNotIn("actions/create-github-app-token@v3\n", self.workflow)
+        #
+        # Assert the COMPLETE list of refs, not merely that a SHA appears
+        # somewhere. An earlier version checked `assertIn(<sha>)` plus
+        # `assertNotIn("@v3\n")`, which one pinned step satisfied on behalf of
+        # both — and which `@v3 # comment` slipped past entirely.
+        app_token_refs = re.findall(
+            r"actions/create-github-app-token@(\S+)", self.workflow
+        )
+        self.assertEqual(
+            app_token_refs,
+            ["bcd2ba49218906704ab6c1aa796996da409d3eb1", "bcd2ba49218906704ab6c1aa796996da409d3eb1"],
+            "both privileged mint steps must pin the verified commit SHA; "
+            f"found {app_token_refs}",
+        )
         self.assertIn("client-id: ${{ vars.COMPOSER_RESOLVER_CLIENT_ID }}", self.workflow)
         self.assertIn("private-key: ${{ secrets.COMPOSER_RESOLVER_PRIVATE_KEY }}", self.workflow)
         self.assertIn("repositories: sparxstar-architecture-governance-registry", self.workflow)

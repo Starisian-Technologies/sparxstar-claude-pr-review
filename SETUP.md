@@ -200,6 +200,13 @@ Defined once, in the Cross-Repo Access Standard:
 
 Do not restate the mint block in your repo. Link to it.
 
+**Supply chain.** `build-context`'s two mint steps are SHA-pinned rather than
+`@v3`, because they are where a third-party action executes holding
+`COMPOSER_RESOLVER_PRIVATE_KEY` — a moved major tag there would run arbitrary
+code with a platform credential. A consumer pinning `@vX.Y.Z` inherits
+whatever that tag's nested actions were, so this pin only reaches you once a
+release carrying it is cut. The published `v1.1.1` still contains `@v3`.
+
 ---
 
 ## Related

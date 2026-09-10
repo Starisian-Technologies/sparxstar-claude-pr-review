@@ -46,7 +46,10 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertLess(validate, mint)
 
     def test_workflow_mints_scoped_registry_read_tokens(self) -> None:
-        self.assertIn("actions/create-github-app-token@v3", self.workflow)
+        # SHA-pinned, not @v3: these steps run a third-party action while holding
+        # the App private key, and a major tag can be moved by its owner.
+        self.assertIn("actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1", self.workflow)
+        self.assertNotIn("actions/create-github-app-token@v3\n", self.workflow)
         self.assertIn("client-id: ${{ vars.COMPOSER_RESOLVER_CLIENT_ID }}", self.workflow)
         self.assertIn("private-key: ${{ secrets.COMPOSER_RESOLVER_PRIVATE_KEY }}", self.workflow)
         self.assertIn("repositories: sparxstar-architecture-governance-registry", self.workflow)
@@ -115,7 +118,7 @@ class WorkflowContractTests(unittest.TestCase):
     def test_privileged_job_holds_app_key_and_never_checks_out_pr_head(self) -> None:
         build_context, _ = self._job_blocks()
         # The App key and token minting live in the privileged job...
-        self.assertIn("actions/create-github-app-token@v3", build_context)
+        self.assertIn("actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1", build_context)
         self.assertIn("secrets.COMPOSER_RESOLVER_PRIVATE_KEY", build_context)
         self.assertIn("actions/upload-artifact", build_context)
         # ...which must never resolve or check out untrusted PR-head code.

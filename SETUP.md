@@ -206,7 +206,7 @@ Do not restate the mint block in your repo. Link to it.
 
 | You need | Go to |
 |---|---|
-| Wiring a brand-new repo, end to end | `starisian-technologies-proprietary-license` → `GOVERNANCE-SETUP.md` |
+| Wiring a brand-new repo, end to end | `starisian-technologies-proprietary-license` → `GOVERNANCE-SETUP.md` — *landing on that repo's open governance-wiring PR; not yet on its default branch* |
 | Full consumer interface for this gate | [`README.md`](./README.md), [`docs/consumer-setup.md`](./docs/consumer-setup.md) |
 | ADRs and invariants | `sparxstar-architecture-governance-registry` → `SETUP.md` |
 | Product specs | `sparxstar-product-specification-registry` → `SETUP.md` |

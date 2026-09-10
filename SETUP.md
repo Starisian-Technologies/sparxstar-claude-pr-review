@@ -10,20 +10,23 @@ It **reads** the registries. It never writes back.
 > **This file is a router.** The authoritative consumer interface is
 > [`README.md`](./README.md) ("Setup & Install") and
 > [`docs/consumer-setup.md`](./docs/consumer-setup.md), both written from the
-> live workflow. Read them for the full contract; this page covers the four
+> live workflow. Read them for the full contract; this page covers the five
 > things that decide whether the gate runs at all.
 
-> **New repo?** `.github/workflows/standards.yml` in the
-> `starisian-technologies-proprietary-license` template already contains a
-> correctly-pinned, correctly-gated caller. Start from
-> `GOVERNANCE-SETUP.md` there rather than hand-writing one.
+> **New repo?** The `starisian-technologies-proprietary-license` template is
+> gaining a correctly-pinned, credential-gated caller
+> (`.github/workflows/standards.yml`) and a setup checklist
+> (`GOVERNANCE-SETUP.md`). Both are on that repo's open governance-wiring PR,
+> **not yet on its default branch** — check there before hand-writing a
+> caller, and prefer them once merged.
 
 ---
 
 ## Five preconditions. Miss any one and the gate does not run.
 
-Four are yours (the caller). The fifth is org infrastructure, and it is the one
-a consumer can satisfy every other item without noticing.
+Four are yours (the caller). The fifth is org infrastructure — the one a
+consumer can miss while satisfying all four others, which is exactly why it is
+the one that bites.
 
 **1. The calling repository must be PRIVATE.**
 `build-context` refuses to run unless `github.event.repository.private == true`,
@@ -41,8 +44,8 @@ restrict the invoking event, so this is on you.
 
 > The live workflow rejects pushes: `Get PR diff` exits 1 with "No pull
 > request number found in the workflow event payload" whenever the event
-> carries no PR number — which is every push. Three places told consumers
-> otherwise, and all three are corrected in this PR: `README.md`'s
+> carries no PR number — which is every push. Four places told consumers
+> otherwise, and all four are corrected in this PR: `README.md`'s
 > determinism note, its troubleshooting line, and — the one that actually
 > gets copied — the `push:` trigger in the **copy-paste caller block**, plus
 > `docs/ci-cd.md`'s "use both triggers for complete coverage".
@@ -57,7 +60,12 @@ restrict the invoking event, so this is on you.
       COMPOSER_RESOLVER_PRIVATE_KEY: ${{ secrets.COMPOSER_RESOLVER_PRIVATE_KEY }}
 ```
 
-Passing only the API key fails at startup. Never `secrets: inherit`.
+Passing only the API key fails at startup — that one is mechanical.
+
+`secrets: inherit` is a separate matter: GitHub Actions permits it, and it
+would work here. The platform forbids it anyway, as least-privilege policy —
+a caller passes only the named secrets a workflow declares, never its whole
+secret store. Treat it as a rule you follow, not a thing that breaks.
 
 The mint step pairs `COMPOSER_RESOLVER_PRIVATE_KEY` with the variable
 `COMPOSER_RESOLVER_CLIENT_ID`, which arrives through the `vars` context — **the
@@ -69,10 +77,13 @@ workflow's own error text names both.
 No `actions:` scope — the two jobs hand off a same-run artifact.
 
 **5. `COMPOSER_RESOLVER_CLIENT_ID` must be set, and the App scoped to both
-registries.** The one that is not yours to fix as a caller, and the one that
-bites: `build-context`'s "Validate composer-resolver configuration" step
-exits 1 when the variable is empty, before any token is minted, and an
-App that is installed but not *scoped* fails later at checkout. See
+registries.** `build-context`'s "Validate composer-resolver configuration"
+step exits 1 when the variable is empty, before any token is minted; an App
+that is installed but not *scoped* fails later, at ref resolution.
+
+The variable half a repository admin can fix (a repo-scoped variable resolves
+through `vars` perfectly well). **The App scoping half needs an org owner** —
+that is the part no amount of caller-side configuration reaches. See
 [Troubleshooting](#troubleshooting).
 
 ---
@@ -98,9 +109,16 @@ removes the contradiction rather than documenting it.
 ### `contract_ref` is a different version axis
 
 `contract_ref` names a tag on the **registries**, not on this repo. Default
-`v1.0.0`. Only the ref *shape* is validated here; the registry checkout fails
-if the tag does not exist. This gate enforces no version floor — that is the
-fetch and version gates' job, not the reviewer's.
+`v1.0.0`. Only the ref *shape* is validated at input.
+
+If the tag does not exist, the failure comes from the **`Resolve contract ref
+SHAs`** step — `::error::Unable to resolve contract_ref '<ref>' in ADR
+registry` — which runs *before* either checkout, because the workflow resolves
+the ref to an immutable commit SHA first so the tag cannot move underneath the
+job. Don't go looking at the checkout steps.
+
+This gate enforces no version floor — that is the fetch and version gates'
+job, not the reviewer's.
 
 Both the ADR registry and the product-spec registry currently carry `v1.0.0`
 and `v1.0.1`, so either resolves. Do not bump `contract_ref` in the same reflex

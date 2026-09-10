@@ -120,6 +120,7 @@ Live tags:
 | Tag | Kind | Use it when |
 | --- | --- | --- |
 | `v1.1.1` | Immutable release — never moves | **Current platform default.** Carries the checkout-target security fixes released after `v1.1.0`. Frozen, reproducible workflow version. |
+| `v1.1.0` | Immutable release — never moves | Prior release. Same `workflow_call` interface as `v1.1.1` but without its checkout-target security fixes — upgrade. |
 | `v1.0.0` | Immutable release — never moves | Prior release. Predates the three-tier spec/contract/ADR review model — upgrade when able. |
 
 **Pin an immutable release tag** (current platform default: `@v1.1.1`). There is

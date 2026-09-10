@@ -138,7 +138,10 @@ jobs:
 
       - name: Mint ADR read token
         id: adr-token
-        uses: actions/create-github-app-token@v3
+        # SHA-pinned: this job holds COMPOSER_RESOLVER_PRIVATE_KEY, so a retagged
+        # @v3 would execute with a platform credential. Re-resolve with
+        # `git ls-remote --tags` before changing; never copy a SHA from memory.
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.COMPOSER_RESOLVER_CLIENT_ID }}
           private-key: ${{ secrets.COMPOSER_RESOLVER_PRIVATE_KEY }}
@@ -147,7 +150,10 @@ jobs:
 
       - name: Mint spec read token
         id: spec-token
-        uses: actions/create-github-app-token@v3
+        # SHA-pinned: this job holds COMPOSER_RESOLVER_PRIVATE_KEY, so a retagged
+        # @v3 would execute with a platform credential. Re-resolve with
+        # `git ls-remote --tags` before changing; never copy a SHA from memory.
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.COMPOSER_RESOLVER_CLIENT_ID }}
           private-key: ${{ secrets.COMPOSER_RESOLVER_PRIVATE_KEY }}

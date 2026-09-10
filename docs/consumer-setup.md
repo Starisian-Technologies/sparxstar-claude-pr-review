@@ -76,7 +76,7 @@ These are **Variables, not Secrets** — a client-id placed in a Secret slot (or
 private key placed in a Variable) fails the mint. Variables propagate into a
 reusable workflow automatically; secrets do not (see Section 7).
 
-**The `v1.1.0` tag of this repo must exist** so the `uses:` pin resolves.
+**The `v1.1.1` tag of this repo must exist** so the `uses:` pin resolves.
 Confirm with `git ls-remote --tags origin` before relying on this pin.
 
 **Who provisions these:** installing the App and creating organization-level
@@ -112,17 +112,18 @@ It guarantees the PR was reviewed against the pinned ADR/spec versions. It does
 ### Section 2 — The `uses:` line and which tag to pin
 
 ```yaml
-uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.0
+uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.1
 ```
 
 Live tags:
 
 | Tag | Kind | Use it when |
 | --- | --- | --- |
-| `v1.1.0` | Immutable release — never moves | **Current platform default.** Frozen, reproducible workflow version. |
+| `v1.1.1` | Immutable release — never moves | **Current platform default.** Carries the checkout-target security fixes released after `v1.1.0`. Frozen, reproducible workflow version. |
+| `v1.1.0` | Immutable release — never moves | Prior release. Same `workflow_call` interface as `v1.1.1` but without its checkout-target security fixes — upgrade. |
 | `v1.0.0` | Immutable release — never moves | Prior release. Predates the three-tier spec/contract/ADR review model — upgrade when able. |
 
-**Pin an immutable release tag** (current platform default: `@v1.1.0`). There is
+**Pin an immutable release tag** (current platform default: `@v1.1.1`). There is
 **no `@v1` moving alias** published — don't assume `@v1` resolves; pin a specific
 release tag. Bumping the pin to a future release is a deliberate
 adoption act. **Never pin `@main` in production.**
@@ -206,9 +207,9 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    # Pin the immutable release tag @v1.1.0 (the current platform default;
+    # Pin the immutable release tag @v1.1.1 (the current platform default;
     # there is no @v1 moving alias). Never reference @main.
-    uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.0
+    uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.1
     with:
       contract_ref: v1.0.0           # ← a real registry tag (immutable release; the checkout fails if it doesn't exist)
     secrets:
@@ -221,11 +222,11 @@ jobs:
 Variables (organization- or repository-scoped) propagate into a reusable
 workflow automatically, but **secrets do not cross the `workflow_call` boundary** — this workflow must declare a secret
 under `on.workflow_call.secrets` before any consumer can pass it, and this repo
-must re-tag after such an edit so the pinned tag (`v1.1.0`) actually contains the
+must re-tag after such an edit so the pinned tag (`v1.1.1`) actually contains the
 declaration. If a consumer passes a secret the pinned tag doesn't yet declare,
 the gate startup-fails (*"the secret … is not defined"*). So when wiring a
 freshly added secret: land + re-tag this repo first, then push the caller. The
-current `v1.1.0` already declares `ANTHROPIC_API_KEY` (required) and
+current `v1.1.1` already declares `ANTHROPIC_API_KEY` (required) and
 `COMPOSER_RESOLVER_PRIVATE_KEY` (required).
 
 ### Section 8 — Enforcement mode: advisory by design
@@ -268,7 +269,7 @@ code satisfies it — remains your repo's responsibility (your tests, your gate)
 
 ```
 .github/workflows/
-  claude-pr-review.yml     # Reusable workflow — consumers reference @v1.1.0
+  claude-pr-review.yml     # Reusable workflow — consumers reference @v1.1.1
   ci.yml                   # This repo's own contract tests
 examples/
   consumer-workflow.yml    # Drop-in caller (mirrors Section 6)

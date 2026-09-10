@@ -11,6 +11,8 @@ class WorkflowContractTests(unittest.TestCase):
         cls.readme = (repo_root / "README.md").read_text(encoding="utf-8")
         cls.docs_ci_cd = (repo_root / "docs/ci-cd.md").read_text(encoding="utf-8")
         cls.consumer_example = (repo_root / "examples/consumer-workflow.yml").read_text(encoding="utf-8")
+        cls.consumer_setup = (repo_root / "docs/consumer-setup.md").read_text(encoding="utf-8")
+        cls.setup_md = (repo_root / "SETUP.md").read_text(encoding="utf-8")
 
     def _assert_claude_workflow_pinned_to(self, text: str, expected_ref: str) -> None:
         # Extract every `uses: …/claude-pr-review.yml@<ref>` pin and assert each
@@ -44,7 +46,22 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertLess(validate, mint)
 
     def test_workflow_mints_scoped_registry_read_tokens(self) -> None:
-        self.assertIn("actions/create-github-app-token@v3", self.workflow)
+        # SHA-pinned, not @v3: these steps run a third-party action while holding
+        # the App private key, and a major tag can be moved by its owner.
+        #
+        # Assert the COMPLETE list of refs, not merely that a SHA appears
+        # somewhere. An earlier version checked `assertIn(<sha>)` plus
+        # `assertNotIn("@v3\n")`, which one pinned step satisfied on behalf of
+        # both — and which `@v3 # comment` slipped past entirely.
+        app_token_refs = re.findall(
+            r"actions/create-github-app-token@(\S+)", self.workflow
+        )
+        self.assertEqual(
+            app_token_refs,
+            ["bcd2ba49218906704ab6c1aa796996da409d3eb1", "bcd2ba49218906704ab6c1aa796996da409d3eb1"],
+            "both privileged mint steps must pin the verified commit SHA; "
+            f"found {app_token_refs}",
+        )
         self.assertIn("client-id: ${{ vars.COMPOSER_RESOLVER_CLIENT_ID }}", self.workflow)
         self.assertIn("private-key: ${{ secrets.COMPOSER_RESOLVER_PRIVATE_KEY }}", self.workflow)
         self.assertIn("repositories: sparxstar-architecture-governance-registry", self.workflow)
@@ -113,7 +130,7 @@ class WorkflowContractTests(unittest.TestCase):
     def test_privileged_job_holds_app_key_and_never_checks_out_pr_head(self) -> None:
         build_context, _ = self._job_blocks()
         # The App key and token minting live in the privileged job...
-        self.assertIn("actions/create-github-app-token@v3", build_context)
+        self.assertIn("actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1", build_context)
         self.assertIn("secrets.COMPOSER_RESOLVER_PRIVATE_KEY", build_context)
         self.assertIn("actions/upload-artifact", build_context)
         # ...which must never resolve or check out untrusted PR-head code.
@@ -324,15 +341,29 @@ class WorkflowContractTests(unittest.TestCase):
 
     def test_consumer_example_pins_immutable_tag_and_passes_resolver_secret(self) -> None:
         # Platform convention: pin the immutable release tag, not @v1 or @main.
-        self._assert_claude_workflow_pinned_to(self.consumer_example, "v1.1.0")
+        self._assert_claude_workflow_pinned_to(self.consumer_example, "v1.1.1")
         self.assertIn("COMPOSER_RESOLVER_PRIVATE_KEY: ${{ secrets.COMPOSER_RESOLVER_PRIVATE_KEY }}", self.consumer_example)
         self.assertIn("contract_ref: v1.0.0", self.consumer_example)
 
     def test_readme_pins_immutable_tag_and_documents_resolver_requirements(self) -> None:
-        self._assert_claude_workflow_pinned_to(self.readme, "v1.1.0")
+        self._assert_claude_workflow_pinned_to(self.readme, "v1.1.1")
         self.assertIn("COMPOSER_RESOLVER_PRIVATE_KEY", self.readme)
         self.assertIn("COMPOSER_RESOLVER_CLIENT_ID", self.readme)
         self.assertIn("contract_ref", self.readme)
+
+    def test_consumer_setup_doc_pins_same_immutable_tag(self) -> None:
+        # docs/consumer-setup.md carries its own copy-paste caller. Unasserted,
+        # it could drift back to an older tag while README and the example
+        # stayed current, and CI would stay green — which is how the pin got
+        # out of step across this repo's docs in the first place.
+        self._assert_claude_workflow_pinned_to(self.consumer_setup, "v1.1.1")
+
+    def test_setup_router_pins_same_immutable_tag(self) -> None:
+        # SETUP.md recommends a pin in prose rather than a `uses:` line, so it
+        # is checked by content: the recommended tag must be the current one,
+        # and the superseded tag must not still be presented as the pin.
+        self.assertIn("**Pin `@v1.1.1`.**", self.setup_md)
+        self.assertNotIn("**Pin `@v1.1.0`.**", self.setup_md)
 
     def test_ci_cd_doc_matches_permission_contract(self) -> None:
         self.assertIn("contents: read", self.docs_ci_cd)

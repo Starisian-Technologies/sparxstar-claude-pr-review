@@ -1,5 +1,7 @@
 # SPARXSTAR Claude PR Review
 
+> **Wiring this gate into a repo? Read [`SETUP.md`](./SETUP.md) for the five preconditions that decide whether it runs at all — four caller-side (private repo, `pull_request` trigger, both secrets, permissions) plus the org infrastructure one (`COMPOSER_RESOLVER_CLIENT_ID` set and the App scoped to both registries). The Setup & Install section below and [`docs/consumer-setup.md`](./docs/consumer-setup.md) are the full interface.**
+
 [![Claude PR Review (Reusable)](https://github.com/Starisian-Technologies/sparxstar-claude-pr-review/actions/workflows/claude-pr-review.yml/badge.svg)](https://github.com/Starisian-Technologies/sparxstar-claude-pr-review/actions/workflows/claude-pr-review.yml)
 
 Centralized reusable GitHub Actions workflow for Claude-powered pull request and commit review to repository specs across Starisian Technologies repositories.
@@ -27,10 +29,10 @@ This gate mints GitHub App tokens to clone two **private** registries, so org-le
 `claude-pr-review.yml` is a reusable workflow that reviews a pull request against the platform's ADRs and product specs. It fetches those contracts from the two private registries, sends the PR diff plus that context to the Anthropic Messages API, and upserts a single review comment with a PASS / FAIL / CONDITIONAL verdict. It is **advisory** — the comment is the deliverable; a FAIL verdict does not fail the job or block merge.
 
 ### 2. The `uses:` line and which tag to pin
-Pin an **immutable release tag** — the current platform default is **`v1.1.0`**. There is **no `@v1` moving alias** published, so don't pin `@v1` (it won't resolve); `git ls-remote --tags origin` lists the release tags that currently exist. Pin the immutable release tag:
+Pin an **immutable release tag** — the current platform default is **`v1.1.1`**. There is **no `@v1` moving alias** published, so don't pin `@v1` (it won't resolve); `git ls-remote --tags origin` lists the release tags that currently exist. Pin the immutable release tag:
 
 ```yaml
-uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.0
+uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.1
 ```
 
 Do not reference `@v1` (not published) or `@main` (moving branch). Future releases require a new pin.
@@ -65,14 +67,13 @@ name: Claude PR Review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-  push:
 
 jobs:
   review:
     permissions:
       contents: read
       pull-requests: write
-    uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.0
+    uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.1
     with:
       contract_ref: v1.0.0          # ← must name a tag that exists on the registries
     secrets:
@@ -81,7 +82,7 @@ jobs:
 ```
 
 ### 7. The sequencing rule (cross-repo)
-Secrets don't auto-inherit across the `workflow_call` boundary: this reusable workflow must **declare** a secret under `on.workflow_call.secrets` before a consumer can pass it, and this repo must **re-tag** afterward so the pinned tag contains the declaration. The `v1.1.0` release declares both `ANTHROPIC_API_KEY` and `COMPOSER_RESOLVER_PRIVATE_KEY`, so once that tag is cut, a consumer pinning `@v1.1.0` and passing both is consistent. A future change to the declared secrets requires cutting a new tag (e.g. `v1.1.1`) before consumers can pin it and pass them.
+Secrets don't auto-inherit across the `workflow_call` boundary: this reusable workflow must **declare** a secret under `on.workflow_call.secrets` before a consumer can pass it, and this repo must **re-tag** afterward so the pinned tag contains the declaration. Both `ANTHROPIC_API_KEY` and `COMPOSER_RESOLVER_PRIVATE_KEY` have been declared since `v1.1.0`, so a consumer pinning `@v1.1.1` and passing both is consistent. A future change to the declared secrets requires cutting a new tag before consumers can pin it and pass them.
 
 ## Workflow behavior
 The workflow runs as two jobs to keep the privileged registry credential away from untrusted PR-head code (see [Determinism and safeguards](#determinism-and-safeguards)):
@@ -99,7 +100,7 @@ The workflow runs as two jobs to keep the privileged registry credential away fr
 The reviewer only reads the registries — there is no contract-sync or write-back.
 
 ## Determinism and safeguards
-- Callers should use `pull_request` and/or `push` triggers — **never `pull_request_target`**. The review job checks out PR-head code, and `pull_request_target` would run it with a read-write token in the base-repo context. `workflow_call` alone does not restrict invocation to these events; unsupported events are rejected at runtime
+- Callers must use the `pull_request` trigger — **never `pull_request_target`**, and not `push`: the `Get PR diff` step exits 1 when the event payload carries no pull request number, so a push run fails before any review is produced. The review job checks out PR-head code, and `pull_request_target` would run it with a read-write token in the base-repo context. `workflow_call` alone does not restrict invocation to these events; unsupported events are rejected at runtime
 - **Privilege split (CodeQL hardening):** the composer-resolver GitHub App key — the only credential that can reach private registries — lives solely in the `build-context` job, which never checks out PR-head code. The `review` job checks out PR-head code but holds no App key and only *reads* those files as data (no build/install/script execution); trusted context crosses between jobs via artifact only
 - **Private callers only:** the trusted context (private ADR/spec content) is staged as a workflow artifact, which would be downloadable by anyone on a public repository. `build-context` fails fast (before minting any token) unless the caller repository is private
 - Diff truncation at 80KB and context truncation at 50KB with explicit notices; authoritative ADR/spec/reference context is placed first so it survives the cap, and trailing repo-local context is truncated first
@@ -129,7 +130,7 @@ The reviewer only reads the registries — there is no contract-sync or write-ba
 If a remote workflow run (in a caller repo) fails while checking out `.spx-workflow-repo` with `upload-pack: not our ref` (e.g. trying to fetch `refs/pull/<n>/merge`), ensure the reusable workflow is up to date. Current versions resolve the reference-docs checkout ref from `github.job_workflow_sha` — the commit SHA of *this* reusable workflow file, resolved by GitHub itself rather than string-parsed from a ref — so cross-repository calls always pin to a valid commit of this repository. Earlier versions read `github.workflow_ref` (the *caller's* top-level ref, e.g. its PR ref on a `pull_request` run) and later `github.job_workflow_ref` parsed for a tag/branch name; both could, in edge cases, hand `actions/checkout` a ref that only exists in the caller's repository.
 
 ### Change diff is empty
-Confirm the caller uses `pull_request` or `push`, and that the event includes code changes.
+Confirm the caller uses `pull_request` (not `push` — it cannot supply a PR number), and that the event includes code changes.
 
 ### Claude API request failed
 Verify `ANTHROPIC_API_KEY` exists and is valid in repo/org secrets.

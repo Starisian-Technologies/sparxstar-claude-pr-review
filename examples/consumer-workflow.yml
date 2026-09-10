@@ -31,9 +31,9 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    # Pin an immutable release tag (current default @v1.1.0). There is no @v1
+    # Pin an immutable release tag (current default @v1.1.1). There is no @v1
     # moving alias published — don't pin @v1. Never reference @main.
-    uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.0
+    uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.1
     with:
       # Tag of the ADR / product-spec registries to review against. Pin a real
       # registry tag; the registry checkout fails if it doesn't exist. This gate

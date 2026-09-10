@@ -13,12 +13,11 @@ It **reads** the registries. It never writes back.
 > live workflow. Read them for the full contract; this page covers the five
 > things that decide whether the gate runs at all.
 
-> **New repo?** The `starisian-technologies-proprietary-license` template is
-> gaining a correctly-pinned, credential-gated caller
+> **New repo?** The `starisian-technologies-proprietary-license` template
+> already ships a correctly-pinned, credential-gated caller
 > (`.github/workflows/standards.yml`) and a setup checklist
-> (`GOVERNANCE-SETUP.md`). Both are on that repo's open governance-wiring PR,
-> **not yet on its default branch** — check there before hand-writing a
-> caller, and prefer them once merged.
+> ([`GOVERNANCE-SETUP.md`](https://github.com/Starisian-Technologies/starisian-technologies-proprietary-license/blob/main/GOVERNANCE-SETUP.md)).
+> Start from those rather than hand-writing a caller.
 
 ---
 
@@ -213,7 +212,7 @@ release carrying it is cut. The published `v1.1.1` still contains `@v3`.
 
 | You need | Go to |
 |---|---|
-| Wiring a brand-new repo, end to end | `starisian-technologies-proprietary-license` → `GOVERNANCE-SETUP.md` — *landing on that repo's open governance-wiring PR; not yet on its default branch* |
+| Wiring a brand-new repo, end to end | `starisian-technologies-proprietary-license` → `GOVERNANCE-SETUP.md` |
 | Full consumer interface for this gate | [`README.md`](./README.md), [`docs/consumer-setup.md`](./docs/consumer-setup.md) |
 | ADRs and invariants | `sparxstar-architecture-governance-registry` → `SETUP.md` |
 | Product specs | `sparxstar-product-specification-registry` → `SETUP.md` |

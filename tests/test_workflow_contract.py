@@ -324,12 +324,12 @@ class WorkflowContractTests(unittest.TestCase):
 
     def test_consumer_example_pins_immutable_tag_and_passes_resolver_secret(self) -> None:
         # Platform convention: pin the immutable release tag, not @v1 or @main.
-        self._assert_claude_workflow_pinned_to(self.consumer_example, "v1.1.0")
+        self._assert_claude_workflow_pinned_to(self.consumer_example, "v1.1.1")
         self.assertIn("COMPOSER_RESOLVER_PRIVATE_KEY: ${{ secrets.COMPOSER_RESOLVER_PRIVATE_KEY }}", self.consumer_example)
         self.assertIn("contract_ref: v1.0.0", self.consumer_example)
 
     def test_readme_pins_immutable_tag_and_documents_resolver_requirements(self) -> None:
-        self._assert_claude_workflow_pinned_to(self.readme, "v1.1.0")
+        self._assert_claude_workflow_pinned_to(self.readme, "v1.1.1")
         self.assertIn("COMPOSER_RESOLVER_PRIVATE_KEY", self.readme)
         self.assertIn("COMPOSER_RESOLVER_CLIENT_ID", self.readme)
         self.assertIn("contract_ref", self.readme)

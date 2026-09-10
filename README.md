@@ -1,6 +1,6 @@
 # SPARXSTAR Claude PR Review
 
-> **Wiring this gate into a repo? Read [`SETUP.md`](./SETUP.md) for the four preconditions that decide whether it runs at all — private repo, `pull_request` trigger, both secrets, permissions. The Setup & Install section below and [`docs/consumer-setup.md`](./docs/consumer-setup.md) are the full interface.**
+> **Wiring this gate into a repo? Read [`SETUP.md`](./SETUP.md) for the five preconditions that decide whether it runs at all — four caller-side (private repo, `pull_request` trigger, both secrets, permissions) plus the org infrastructure one (`COMPOSER_RESOLVER_CLIENT_ID` set and the App scoped to both registries). The Setup & Install section below and [`docs/consumer-setup.md`](./docs/consumer-setup.md) are the full interface.**
 
 [![Claude PR Review (Reusable)](https://github.com/Starisian-Technologies/sparxstar-claude-pr-review/actions/workflows/claude-pr-review.yml/badge.svg)](https://github.com/Starisian-Technologies/sparxstar-claude-pr-review/actions/workflows/claude-pr-review.yml)
 
@@ -29,10 +29,10 @@ This gate mints GitHub App tokens to clone two **private** registries, so org-le
 `claude-pr-review.yml` is a reusable workflow that reviews a pull request against the platform's ADRs and product specs. It fetches those contracts from the two private registries, sends the PR diff plus that context to the Anthropic Messages API, and upserts a single review comment with a PASS / FAIL / CONDITIONAL verdict. It is **advisory** — the comment is the deliverable; a FAIL verdict does not fail the job or block merge.
 
 ### 2. The `uses:` line and which tag to pin
-Pin an **immutable release tag** — the current platform default is **`v1.1.0`**. There is **no `@v1` moving alias** published, so don't pin `@v1` (it won't resolve); `git ls-remote --tags origin` lists the release tags that currently exist. Pin the immutable release tag:
+Pin an **immutable release tag** — the current platform default is **`v1.1.1`**. There is **no `@v1` moving alias** published, so don't pin `@v1` (it won't resolve); `git ls-remote --tags origin` lists the release tags that currently exist. Pin the immutable release tag:
 
 ```yaml
-uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.0
+uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.1
 ```
 
 Do not reference `@v1` (not published) or `@main` (moving branch). Future releases require a new pin.
@@ -67,14 +67,13 @@ name: Claude PR Review
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-  push:
 
 jobs:
   review:
     permissions:
       contents: read
       pull-requests: write
-    uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.0
+    uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.1
     with:
       contract_ref: v1.0.0          # ← must name a tag that exists on the registries
     secrets:
@@ -83,7 +82,7 @@ jobs:
 ```
 
 ### 7. The sequencing rule (cross-repo)
-Secrets don't auto-inherit across the `workflow_call` boundary: this reusable workflow must **declare** a secret under `on.workflow_call.secrets` before a consumer can pass it, and this repo must **re-tag** afterward so the pinned tag contains the declaration. The `v1.1.0` release declares both `ANTHROPIC_API_KEY` and `COMPOSER_RESOLVER_PRIVATE_KEY`, so once that tag is cut, a consumer pinning `@v1.1.0` and passing both is consistent. A future change to the declared secrets requires cutting a new tag (e.g. `v1.1.1`) before consumers can pin it and pass them.
+Secrets don't auto-inherit across the `workflow_call` boundary: this reusable workflow must **declare** a secret under `on.workflow_call.secrets` before a consumer can pass it, and this repo must **re-tag** afterward so the pinned tag contains the declaration. Both `ANTHROPIC_API_KEY` and `COMPOSER_RESOLVER_PRIVATE_KEY` have been declared since `v1.1.0`, so a consumer pinning `@v1.1.1` and passing both is consistent. A future change to the declared secrets requires cutting a new tag before consumers can pin it and pass them.
 
 ## Workflow behavior
 The workflow runs as two jobs to keep the privileged registry credential away from untrusted PR-head code (see [Determinism and safeguards](#determinism-and-safeguards)):

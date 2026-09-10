@@ -39,12 +39,15 @@ The `review` job checks out PR-head code. `pull_request_target` would run it
 with a read-write token in the base-repo context. `workflow_call` does not
 restrict the invoking event, so this is on you.
 
-> `README.md` and `docs/consumer-setup.md` told consumers they may use
-> `pull_request` **and/or `push`**. The live workflow disagrees: the
-> `Get PR diff` step exits 1 with "No pull request number found in the
-> workflow event payload" whenever the event carries no PR number — which is
-> every push. A caller following that guidance got a failing run, not a
-> review. Code wins; both lines are corrected in this PR.
+> The live workflow rejects pushes: `Get PR diff` exits 1 with "No pull
+> request number found in the workflow event payload" whenever the event
+> carries no PR number — which is every push. Three places told consumers
+> otherwise, and all three are corrected in this PR: `README.md`'s
+> determinism note, its troubleshooting line, and — the one that actually
+> gets copied — the `push:` trigger in the **copy-paste caller block**, plus
+> `docs/ci-cd.md`'s "use both triggers for complete coverage".
+> `docs/consumer-setup.md` never carried the push guidance; an earlier
+> revision of this note wrongly named it.
 
 **3. Both secrets, passed by name.** Both are declared `required: true`:
 
@@ -62,14 +65,15 @@ consumer does not pass it.** Organization-scoped is the normal setup, but a
 repository-scoped variable resolves through `vars` just as well; the
 workflow's own error text names both.
 
-**5. `COMPOSER_RESOLVER_CLIENT_ID` must be set and the App scoped to both
-registries.** This is infrastructure, not caller config, and it is the
-precondition that bites: `build-context`'s "Validate composer-resolver
-configuration" step exits 1 when the variable is empty, before any token is
-minted. See [Troubleshooting](#troubleshooting) for the scope half.
-
 **4. Minimum job permissions:** `contents: read` and `pull-requests: write`.
 No `actions:` scope — the two jobs hand off a same-run artifact.
+
+**5. `COMPOSER_RESOLVER_CLIENT_ID` must be set, and the App scoped to both
+registries.** The one that is not yours to fix as a caller, and the one that
+bites: `build-context`'s "Validate composer-resolver configuration" step
+exits 1 when the variable is empty, before any token is minted, and an
+App that is installed but not *scoped* fails later at checkout. See
+[Troubleshooting](#troubleshooting).
 
 ---
 
@@ -79,20 +83,17 @@ Published tags read from the live remote 2026-09-10: `v1.0.0`, `v1.1.0`,
 `v1.1.1`. **There is no `@v1` moving alias on this repo**, and `@main` is never
 permitted.
 
-**Pin `@v1.1.0`.** That is this repo's enforced canon, not just a preference:
-`tests/test_workflow_contract.py` asserts it in both `README.md` and the
-consumer example, so it is the one pin the repo's own CI defends.
+**Pin `@v1.1.1`.** It carries the checkout-target security fixes released
+after `v1.1.0`, and its `on.workflow_call` block is identical — both inputs,
+both required secrets, compared directly — so it is a drop-in.
 
-`v1.1.1` exists and carries the checkout-target security fixes released after
-`v1.1.0`. Its `on.workflow_call` block is identical — both inputs, both
-required secrets, compared directly. So it is technically a drop-in and
-arguably the better pin. It is deliberately **not** recommended here, because
-recommending it from this page alone would create two competing "current"
-pins across documents that route readers to each other.
-
-Promoting `v1.1.1` is a single owner-approved change touching
-`README.md`, the consumer example and `test_workflow_contract.py` **together**
-— not a line edit in one file.
+This is the repo's canon, not just this page's preference: `README.md`, the
+consumer example in `examples/` and `tests/test_workflow_contract.py` are all
+promoted to `v1.1.1` in this PR, together. An earlier revision of this page
+recommended `v1.1.0` because that was what the tests then asserted, which had
+the perverse effect of steering new consumers onto the older security posture
+while naming the newer tag as the fixed one. Promoting all four at once
+removes the contradiction rather than documenting it.
 
 ### `contract_ref` is a different version axis
 
@@ -161,8 +162,10 @@ default `GITHUB_TOKEN` with `persist-credentials: false` — no App credential
 is involved. Adding the caller to the App's repository access grants
 cross-repo reach this gate never uses.
 
-**The job never appears.** Work preconditions 1–4 above in order. Private?
-`pull_request`? Both secrets visible? Permissions?
+**The job never appears.** Work all five preconditions above in order.
+Private? `pull_request`? Both secrets visible? Permissions? And the one
+that is not caller config: is `COMPOSER_RESOLVER_CLIENT_ID` set, and is the
+App scoped to both registries?
 
 **A secret error at startup.** Secrets do not cross `workflow_call`
 automatically. Open your caller and this repo's `on.workflow_call.secrets`

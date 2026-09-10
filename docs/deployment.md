@@ -19,7 +19,7 @@ Consumer repositories import the workflow by ref:
 | Development / initial setup | `@main` | Acceptable for non-production testing; tracks the latest commit. |
 | Staging / production | `@vX.Y.Z` | Pin to a release tag to get predictable, auditable behaviour. |
 
-The quick-start example in `README.md` and `examples/consumer-workflow.yml` uses `@main` for simplicity. Replace it with a release tag before deploying to production environments.
+The quick-start example in `README.md` and `examples/consumer-workflow.yml` pins `@v1.1.1`, the current canonical release — not `@main`. An earlier revision of this line said they used `@main` "for simplicity", which contradicted the never-`@main`-in-production rule above and is no longer true of either file.
 
 ## Post-deploy verification
 - Trigger a test PR in a consumer repository.

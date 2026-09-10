@@ -97,9 +97,9 @@ permitted.
 after `v1.1.0`, and its `on.workflow_call` block is identical — both inputs,
 both required secrets, compared directly — so it is a drop-in.
 
-This is the repo's canon, not just this page's preference: `README.md`, the
-consumer example in `examples/` and `tests/test_workflow_contract.py` are all
-promoted to `v1.1.1` in this PR, together. An earlier revision of this page
+This is the repo's canon, not just this page's preference: `README.md`,
+`examples/consumer-workflow.yml`, `docs/consumer-setup.md`, this page and
+`tests/test_workflow_contract.py` were promoted to `v1.1.1` together. An earlier revision of this page
 recommended `v1.1.0` because that was what the tests then asserted, which had
 the perverse effect of steering new consumers onto the older security posture
 while naming the newer tag as the fixed one. Promoting all four at once

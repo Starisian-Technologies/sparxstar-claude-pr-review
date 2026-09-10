@@ -70,7 +70,7 @@ steps. Likewise organization- or repository-scoped:
 
 | Variable | Holds | Used for |
 | --- | --- | --- |
-| `COMPOSER_RESOLVER_CLIENT_ID` | the App client-id string (`create-github-app-token@v3` uses `client-id:`, not a numeric app-id) | read-token mint |
+| `COMPOSER_RESOLVER_CLIENT_ID` | the App client-id string (`create-github-app-token` v3 uses `client-id:`, not a numeric app-id) | read-token mint |
 
 These are **Variables, not Secrets** — a client-id placed in a Secret slot (or a
 private key placed in a Variable) fails the mint. Variables propagate into a

@@ -102,8 +102,8 @@ This is the repo's canon, not just this page's preference: `README.md`,
 `tests/test_workflow_contract.py` were promoted to `v1.1.1` together. An earlier revision of this page
 recommended `v1.1.0` because that was what the tests then asserted, which had
 the perverse effect of steering new consumers onto the older security posture
-while naming the newer tag as the fixed one. Promoting all four at once
-removes the contradiction rather than documenting it.
+while naming the newer tag as the fixed one. Promoting every one of them in
+the same change removes the contradiction rather than documenting it.
 
 ### `contract_ref` is a different version axis
 

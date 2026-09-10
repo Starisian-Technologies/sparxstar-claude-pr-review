@@ -211,4 +211,4 @@ Do not restate the mint block in your repo. Link to it.
 | ADRs and invariants | `sparxstar-architecture-governance-registry` → `SETUP.md` |
 | Product specs | `sparxstar-product-specification-registry` → `SETUP.md` |
 | Interface contracts | `sparxstar-contracts-registry` → `SETUP.md` |
-| Lint/style enforcement | `sparxstar-code-conformance` → `SETUP.md` |
+| Lint/style enforcement | `sparxstar-code-conformance` → `docs/platform-setup/SETUP.md` |

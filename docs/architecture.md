@@ -24,6 +24,7 @@ This repository provides a reusable GitHub Actions workflow that performs Claude
 `build-context` is fail-fast, before any token is minted, for:
 - A public caller repository
 - Unset composer-resolver configuration
+- An empty or malformed `contract_ref` (`Validate contract_ref`)
 
 `review` declares `needs: build-context`, so the checks below run only after both App tokens have been minted, the registries checked out and the trusted-context artifact uploaded. They stop the run; they do not make it fail fast:
 - Missing PR context

@@ -2,7 +2,6 @@
 
 > **Wiring this gate into a repo? Read [`SETUP.md`](./SETUP.md) for the four preconditions that decide whether it runs at all — private repo, `pull_request` trigger, both secrets, permissions. The Setup & Install section below and [`docs/consumer-setup.md`](./docs/consumer-setup.md) are the full interface.**
 
-
 [![Claude PR Review (Reusable)](https://github.com/Starisian-Technologies/sparxstar-claude-pr-review/actions/workflows/claude-pr-review.yml/badge.svg)](https://github.com/Starisian-Technologies/sparxstar-claude-pr-review/actions/workflows/claude-pr-review.yml)
 
 Centralized reusable GitHub Actions workflow for Claude-powered pull request and commit review to repository specs across Starisian Technologies repositories.

@@ -822,23 +822,69 @@ jobs:
           Path("prompt.txt").write_text(prompt, encoding="utf-8")
           PY
 
+          # Held in a variable so the 404 diagnostic below can name it. A
+          # retired or misspelled model id is a request fault, not a
+          # credential fault, and the two must not report the same way.
+          CLAUDE_MODEL="claude-sonnet-4-6"
+
           jq -n \
-            --arg model "claude-sonnet-4-6" \
+            --arg model "${CLAUDE_MODEL}" \
             --argjson max_tokens 4096 \
             --rawfile content prompt.txt \
             '{model: $model, max_tokens: $max_tokens, messages: [{role: "user", content: $content}]}' \
             > request.json
 
-          RESPONSE=$(curl -sf https://api.anthropic.com/v1/messages \
+          # Deliberately no -f. curl -f discards the response body on any HTTP
+          # >= 400, so a bad key, a bad model id, a rate limit and an outage
+          # all used to surface as the same "verify ANTHROPIC_API_KEY" line
+          # while the API's own error text never reached the log — the failure
+          # could not be diagnosed from the job. Without -f, curl exits
+          # non-zero only on a transport failure, so the cases separate: the
+          # || branch is network, the status check below is HTTP.
+          # Same guard the tier and context writes use: this job checks out
+          # untrusted PR-head code into this directory, tracked symlinks
+          # survive actions/checkout, and curl -o follows one straight to
+          # whatever it points at.
+          if [ -L "response.json" ]; then
+            echo "::error::response.json is a symlink — aborting to prevent path traversal."
+            exit 1
+          fi
+          rm -f response.json
+
+          HTTP_STATUS=$(curl -sS -o response.json -w '%{http_code}' \
+            https://api.anthropic.com/v1/messages \
             -H "Content-Type: application/json" \
             -H "x-api-key: ${ANTHROPIC_API_KEY}" \
             -H "anthropic-version: 2023-06-01" \
             -d @request.json) || {
-            echo "::error::Claude API request failed. Verify ANTHROPIC_API_KEY is valid."
+            echo "::error::Could not reach api.anthropic.com (network or TLS failure). No HTTP response arrived, so the API key is not implicated."
             exit 1
           }
 
-          echo "$RESPONSE" | jq -r '.content[0].text // "Review failed: " + (.error.message // "unknown error")' > review.txt
+          if [ "${HTTP_STATUS}" != "200" ]; then
+            # Flattened and capped: ::error:: takes a single line, and an error
+            # body can be multi-line HTML from an edge proxy rather than JSON.
+            API_TYPE=$(jq -r '.error.type // "unknown"' response.json 2>/dev/null | tr '\n' ' ' | cut -c1-100 || echo "unparseable")
+            API_MSG=$(jq -r '.error.message // "(no message field)"' response.json 2>/dev/null | tr '\n' ' ' | cut -c1-500 || echo "(response body was not JSON)")
+            echo "::error::Claude API returned HTTP ${HTTP_STATUS} [${API_TYPE}]: ${API_MSG}"
+            case "${HTTP_STATUS}" in
+              401|403)
+                echo "::error::HTTP ${HTTP_STATUS} is an authentication failure. Check the ANTHROPIC_API_KEY secret, and rotate it only if it is expired, revoked, exposed or replaced in the Anthropic Console."
+                ;;
+              404)
+                echo "::error::HTTP 404 means the request named something that does not exist, most often the model. Requested model: ${CLAUDE_MODEL}. Rotating the API key will not fix this."
+                ;;
+              429)
+                echo "::error::HTTP 429 is rate limiting, not an invalid key. Re-run the job."
+                ;;
+              5*)
+                echo "::error::HTTP ${HTTP_STATUS} is an Anthropic-side error, not a credential fault. Re-run the job."
+                ;;
+            esac
+            exit 1
+          fi
+
+          jq -r '.content[0].text // "Review failed: " + (.error.message // "unknown error")' response.json > review.txt
 
       - name: Post review comment
         env:

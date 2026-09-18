@@ -375,6 +375,23 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("COMPOSER_RESOLVER_CLIENT_ID", self.docs_ci_cd)
         self.assertIn("contract_ref", self.docs_ci_cd)
 
+    def _claude_api_curl(self) -> str:
+        """The curl invocation that calls the Messages API, joined to one line."""
+        lines = self.workflow.splitlines()
+        idx = next(
+            i for i, ln in enumerate(lines) if "api.anthropic.com/v1/messages" in ln
+        )
+        while "curl" not in lines[idx]:
+            idx -= 1
+        parts = []
+        while True:
+            stripped = lines[idx].strip()
+            parts.append(stripped.rstrip("\\").strip())
+            if not stripped.endswith("\\"):
+                break
+            idx += 1
+        return " ".join(parts)
+
     def test_api_call_does_not_discard_the_error_body(self) -> None:
         # curl -f makes curl exit non-zero on HTTP >= 400 *and* throw the
         # response body away. With it, a revoked key, a retired model id, a
@@ -382,29 +399,54 @@ class WorkflowContractTests(unittest.TestCase):
         # sentence about the API key, and the real cause could not be read
         # off the job at all. Regression guard: the request must keep the
         # body so the status handler has something to report.
-        start = self.workflow.index("api.anthropic.com/v1/messages")
-        call = self.workflow[start - 400 : self.workflow.index("review.txt", start)]
-        self.assertNotIn("curl -sf", call)
+        call = self._claude_api_curl()
+        self.assertIn("curl", call)
+        # Match the flag, not one spelling of it. -f, --fail, -sf, -fsS and
+        # a later -sS -f must all fail this test; asserting on the literal
+        # string "curl -sf" would have caught only the exact old wording.
+        self.assertNotIn("--fail", call)
+        for cluster in re.findall(r"(?<!\S)-([A-Za-z]+)", call):
+            self.assertNotIn(
+                "f", cluster, f"curl short-option cluster -{cluster} carries -f"
+            )
         self.assertIn("-o response.json", call)
         self.assertIn("-w '%{http_code}'", call)
 
-    def test_api_failure_distinguishes_auth_from_other_causes(self) -> None:
-        # The point of keeping the body: an operator must be able to tell
-        # "rotate the secret" from "this has nothing to do with the secret"
-        # without re-running anything.
-        self.assertIn("HTTP_STATUS", self.workflow)
-        # The API's own words, not ours.
-        self.assertIn(".error.type", self.workflow)
-        self.assertIn(".error.message", self.workflow)
-        # Only 401/403 may advise rotating the key.
-        self.assertIn("401|403)", self.workflow)
-        rotate = [ln for ln in self.workflow.splitlines() if "rotate" in ln.lower()]
-        self.assertTrue(rotate, "no rotation guidance found")
-        for line in rotate:
-            self.assertNotIn("404", line)
-            self.assertNotIn("429", line)
-        # A 404 is a request fault and must say so.
-        self.assertIn("Rotating the API key will not fix this", self.workflow)
+    def test_response_file_is_guarded_against_planted_symlinks(self) -> None:
+        # This job checks out untrusted PR-head code into the working
+        # directory and tracked symlinks survive actions/checkout, so a PR
+        # can pre-plant response.json and redirect curl -o through it. The
+        # tier and context writes already guard their outputs this way.
+        self.assertIn(
+            "response.json is a symlink — aborting to prevent path traversal.",
+            self.workflow,
+        )
+        guard = self.workflow.index('if [ -L "response.json" ]')
+        write = self.workflow.index("-o response.json")
+        self.assertLess(guard, write, "symlink guard must precede the curl write")
+
+    def test_only_authentication_statuses_advise_rotating_the_key(self) -> None:
+        # An operator must never be told to rotate a credential over a status
+        # that has nothing to do with it. Matching the word stem rather than
+        # one inflection: an earlier version of this guard passed only
+        # because "Rotating" happens not to contain "rotate".
+        rotat = re.compile(r"rotat(?:e|es|ed|ing|ion)", re.IGNORECASE)
+        mentions = [
+            ln.strip()
+            for ln in self.workflow.splitlines()
+            if "::error::" in ln and rotat.search(ln)
+        ]
+        self.assertTrue(mentions, "no diagnostic mentions rotating the key")
+        # A diagnostic may name rotation to rule it out; only one may advise it.
+        advises = [ln for ln in mentions if "will not fix" not in ln]
+        self.assertEqual(
+            len(advises),
+            1,
+            "exactly one diagnostic may advise rotation, got:\n" + "\n".join(advises),
+        )
+        self.assertIn("authentication failure", advises[0])
+        for status in ("404", "429"):
+            self.assertNotIn(status, advises[0])
 
     def test_model_id_is_named_in_the_not_found_diagnostic(self) -> None:
         # A 404 is most often the model id, so the diagnostic has to print

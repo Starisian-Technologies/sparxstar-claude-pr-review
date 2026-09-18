@@ -841,6 +841,16 @@ jobs:
           # could not be diagnosed from the job. Without -f, curl exits
           # non-zero only on a transport failure, so the cases separate: the
           # || branch is network, the status check below is HTTP.
+          # Same guard the tier and context writes use: this job checks out
+          # untrusted PR-head code into this directory, tracked symlinks
+          # survive actions/checkout, and curl -o follows one straight to
+          # whatever it points at.
+          if [ -L "response.json" ]; then
+            echo "::error::response.json is a symlink — aborting to prevent path traversal."
+            exit 1
+          fi
+          rm -f response.json
+
           HTTP_STATUS=$(curl -sS -o response.json -w '%{http_code}' \
             https://api.anthropic.com/v1/messages \
             -H "Content-Type: application/json" \

@@ -375,6 +375,44 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("COMPOSER_RESOLVER_CLIENT_ID", self.docs_ci_cd)
         self.assertIn("contract_ref", self.docs_ci_cd)
 
+    def test_api_call_does_not_discard_the_error_body(self) -> None:
+        # curl -f makes curl exit non-zero on HTTP >= 400 *and* throw the
+        # response body away. With it, a revoked key, a retired model id, a
+        # rate limit and an outage all reached the log as one hardcoded
+        # sentence about the API key, and the real cause could not be read
+        # off the job at all. Regression guard: the request must keep the
+        # body so the status handler has something to report.
+        start = self.workflow.index("api.anthropic.com/v1/messages")
+        call = self.workflow[start - 400 : self.workflow.index("review.txt", start)]
+        self.assertNotIn("curl -sf", call)
+        self.assertIn("-o response.json", call)
+        self.assertIn("-w '%{http_code}'", call)
+
+    def test_api_failure_distinguishes_auth_from_other_causes(self) -> None:
+        # The point of keeping the body: an operator must be able to tell
+        # "rotate the secret" from "this has nothing to do with the secret"
+        # without re-running anything.
+        self.assertIn("HTTP_STATUS", self.workflow)
+        # The API's own words, not ours.
+        self.assertIn(".error.type", self.workflow)
+        self.assertIn(".error.message", self.workflow)
+        # Only 401/403 may advise rotating the key.
+        self.assertIn("401|403)", self.workflow)
+        rotate = [ln for ln in self.workflow.splitlines() if "rotate" in ln.lower()]
+        self.assertTrue(rotate, "no rotation guidance found")
+        for line in rotate:
+            self.assertNotIn("404", line)
+            self.assertNotIn("429", line)
+        # A 404 is a request fault and must say so.
+        self.assertIn("Rotating the API key will not fix this", self.workflow)
+
+    def test_model_id_is_named_in_the_not_found_diagnostic(self) -> None:
+        # A 404 is most often the model id, so the diagnostic has to print
+        # which id was asked for; otherwise the next operator guesses too.
+        self.assertIn('CLAUDE_MODEL="claude-sonnet-4-6"', self.workflow)
+        self.assertIn('--arg model "${CLAUDE_MODEL}"', self.workflow)
+        self.assertIn("Requested model: ${CLAUDE_MODEL}", self.workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

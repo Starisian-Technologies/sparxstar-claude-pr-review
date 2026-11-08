@@ -20,7 +20,7 @@ Every identifier below is read from this repo's live `.github/workflows/claude-p
 ### 0. Prerequisites (do this first — the gate cannot run without it)
 This gate mints GitHub App tokens to clone two **private** registries, so org-level setup must exist before any consumer can call it:
 
-- **GitHub App — `composer-resolver` (required).** The mint steps use `actions/create-github-app-token` SHA-pinned at `bcd2ba49218906704ab6c1aa796996da409d3eb1` (`# v3.2.0`, `owner: Starisian-Technologies`) — pinned rather than `@v3` because those steps hold the App private key to mint installation tokens for `sparxstar-architecture-governance-registry` and `sparxstar-product-specification-registry`. **This pin is on `main` only.** The published `v1.1.1` that this README tells you to pin still carries `@v3` at both mint steps, so a consumer inherits the moving alias until a release carrying the pin is cut — see [`SETUP.md`](./SETUP.md) → Supply chain. The consuming org must have **composer-resolver** installed and scoped to **both** repos with **Contents: Read** (the gate only reads them — there is no write/push App). Verify in **org Settings → GitHub Apps → composer-resolver → Repository access**. An App existing org-wide is *not* the same as being scoped to these two repos — that mismatch is the most common misconfiguration, and it surfaces at the registry checkout as an opaque `repository not found`, not a clear "scope the App" message.
+- **GitHub App — `composer-resolver` (required).** The mint steps use `actions/create-github-app-token` SHA-pinned at `bcd2ba49218906704ab6c1aa796996da409d3eb1` (`# v3.2.0`, `owner: Starisian-Technologies`) — pinned rather than `@v3` because those steps hold the App private key to mint installation tokens for `sparxstar-architecture-governance-registry` and `sparxstar-product-specification-registry`. It ships from `v1.1.2` onward; `v1.1.1` and earlier carry the moving `@v3` alias at both mint steps — see [`SETUP.md`](./SETUP.md) → Supply chain. The consuming org must have **composer-resolver** installed and scoped to **both** repos with **Contents: Read** (the gate only reads them — there is no write/push App). Verify in **org Settings → GitHub Apps → composer-resolver → Repository access**. An App existing org-wide is *not* the same as being scoped to these two repos — that mismatch is the most common misconfiguration, and it surfaces at the registry checkout as an opaque `repository not found`, not a clear "scope the App" message.
 - **Secrets** (Settings → Secrets and variables → Actions → **Secrets**): `ANTHROPIC_API_KEY` and `COMPOSER_RESOLVER_PRIVATE_KEY`.
 - **Variable** (same screen → **Variables**, *not* Secrets): `COMPOSER_RESOLVER_CLIENT_ID` — holds the App **client-id string** (`actions/create-github-app-token` v3 takes `client-id:`; the legacy `app-id` is also accepted, but this workflow passes `client-id`). It must be a **Variable**, not a Secret: the mint reads it via the `vars` context, so a value placed in a Secret slot is invisible to `vars.COMPOSER_RESOLVER_CLIENT_ID` and reads as empty. A missing or misplaced value is **not** a silent failure — the `Validate composer-resolver configuration` step fails fast with an explicit "COMPOSER_RESOLVER_CLIENT_ID variable is not set" error before any token is minted.
 - **Who provisions:** App install + org secret/variable creation need org-admin. A missing prerequisite surfaces as "repository not found" or an empty-credential error at the mint/checkout step — not a clear "you forgot to install the App." Check prerequisites first on any auth failure.
@@ -29,10 +29,10 @@ This gate mints GitHub App tokens to clone two **private** registries, so org-le
 `claude-pr-review.yml` is a reusable workflow that reviews a pull request against the platform's ADRs and product specs. It fetches those contracts from the two private registries, sends the PR diff plus that context to the Anthropic Messages API, and upserts a single review comment with a PASS / FAIL / CONDITIONAL verdict. It is **advisory** — the comment is the deliverable; a FAIL verdict does not fail the job or block merge.
 
 ### 2. The `uses:` line and which tag to pin
-Pin an **immutable release tag** — the current platform default is **`v1.1.1`**. There is **no `@v1` moving alias** published, so don't pin `@v1` (it won't resolve); `git ls-remote --tags origin` lists the release tags that currently exist. Pin the immutable release tag:
+Pin an **immutable release tag** — the current platform default is **`v1.1.2`**. There is **no `@v1` moving alias** published, so don't pin `@v1` (it won't resolve); `git ls-remote --tags origin` lists the release tags that currently exist. Pin the immutable release tag:
 
 ```yaml
-uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.1
+uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.2
 ```
 
 Do not reference `@v1` (not published) or `@main` (moving branch). Future releases require a new pin.
@@ -73,7 +73,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.1
+    uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.2
     with:
       contract_ref: v1.0.0          # ← must name a tag that exists on the registries
     secrets:
@@ -82,7 +82,7 @@ jobs:
 ```
 
 ### 7. The sequencing rule (cross-repo)
-Secrets don't auto-inherit across the `workflow_call` boundary: this reusable workflow must **declare** a secret under `on.workflow_call.secrets` before a consumer can pass it, and this repo must **re-tag** afterward so the pinned tag contains the declaration. Both `ANTHROPIC_API_KEY` and `COMPOSER_RESOLVER_PRIVATE_KEY` have been declared since `v1.1.0`, so a consumer pinning `@v1.1.1` and passing both is consistent. A future change to the declared secrets requires cutting a new tag before consumers can pin it and pass them.
+Secrets don't auto-inherit across the `workflow_call` boundary: this reusable workflow must **declare** a secret under `on.workflow_call.secrets` before a consumer can pass it, and this repo must **re-tag** afterward so the pinned tag contains the declaration. Both `ANTHROPIC_API_KEY` and `COMPOSER_RESOLVER_PRIVATE_KEY` have been declared since `v1.1.0`, so a consumer pinning `@v1.1.2` and passing both is consistent. A future change to the declared secrets requires cutting a new tag before consumers can pin it and pass them.
 
 ## Workflow behavior
 The workflow runs as two jobs to keep the privileged registry credential away from untrusted PR-head code (see [Determinism and safeguards](#determinism-and-safeguards)):

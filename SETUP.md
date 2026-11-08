@@ -89,21 +89,25 @@ that is the part no amount of caller-side configuration reaches. See
 
 ## Pinning
 
-Published tags read from the live remote 2026-09-10: `v1.0.0`, `v1.1.0`,
-`v1.1.1`. **There is no `@v1` moving alias on this repo**, and `@main` is never
+Published tags: `v1.0.0`, `v1.1.0`, `v1.1.1`, `v1.1.2` — confirm against the
+live remote with `git ls-remote --tags origin` rather than trusting this list.
+**There is no `@v1` moving alias on this repo**, and `@main` is never
 permitted.
 
-**Pin `@v1.1.1`.** It carries the checkout-target security fixes released
-after `v1.1.0`, and its `on.workflow_call` block is identical — both inputs,
-both required secrets, compared directly — so it is a drop-in.
+**Pin `@v1.1.2`.** Its `on.workflow_call` block is identical to `v1.1.1`'s —
+both inputs, both required secrets, compared directly — so it is a drop-in.
+
+**Any caller on `v1.1.1` or older must bump.** `v1.1.1`'s checkout-target gate
+queries GraphQL `mergeCommit`, which is the commit created *by* merging and is
+`null` on every open pull request, so the `review` job fails with "PR merge
+commit is unavailable" on every PR it is asked to review. `v1.1.2` queries REST
+`merge_commit_sha` (GitHub's test merge) instead, and still fails closed if
+that is missing.
 
 This is the repo's canon, not just this page's preference: `README.md`,
 `examples/consumer-workflow.yml`, `docs/consumer-setup.md`, this page and
-`tests/test_workflow_contract.py` were promoted to `v1.1.1` together. An earlier revision of this page
-recommended `v1.1.0` because that was what the tests then asserted, which had
-the perverse effect of steering new consumers onto the older security posture
-while naming the newer tag as the fixed one. Promoting every one of them in
-the same change removes the contradiction rather than documenting it.
+`tests/test_workflow_contract.py` are promoted together, and the tests assert
+the pin in each, so one cannot drift back to an older tag with CI green.
 
 ### `contract_ref` is a different version axis
 
@@ -203,8 +207,8 @@ Do not restate the mint block in your repo. Link to it.
 `@v3`, because they are where a third-party action executes holding
 `COMPOSER_RESOLVER_PRIVATE_KEY` — a moved major tag there would run arbitrary
 code with a platform credential. A consumer pinning `@vX.Y.Z` inherits
-whatever that tag's nested actions were, so this pin only reaches you once a
-release carrying it is cut. The published `v1.1.1` still contains `@v3`.
+whatever that tag's nested actions were: the pin ships from `v1.1.2` onward,
+and `v1.1.1` and earlier still resolve `@v3` at both mint steps.
 
 ---
 

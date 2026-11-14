@@ -89,25 +89,9 @@ that is the part no amount of caller-side configuration reaches. See
 
 ## Pinning
 
-Published tags: `v1.0.0`, `v1.1.0`, `v1.1.1`, `v1.1.2` — confirm against the
-live remote with `git ls-remote --tags origin` rather than trusting this list.
-**There is no `@v1` moving alias on this repo**, and `@main` is never
-permitted.
+**Pin `@main`.** Owner ruling, 2026-11-14: follow reviewed merges of the reviewer; publish releases after merge for audit history. This replaces the previous release-tag policy for the reviewer only. Registry `contract_ref` remains a real release tag.
 
-**Pin `@v1.1.2`.** Its `on.workflow_call` block is identical to `v1.1.1`'s —
-both inputs, both required secrets, compared directly — so it is a drop-in.
-
-**Any caller on `v1.1.1` or older must bump.** `v1.1.1`'s checkout-target gate
-queries GraphQL `mergeCommit`, which is the commit created *by* merging and is
-`null` on every open pull request, so the `review` job fails with "PR merge
-commit is unavailable" on every PR it is asked to review. `v1.1.2` queries REST
-`merge_commit_sha` (GitHub's test merge) instead, and still fails closed if
-that is missing.
-
-This is the repo's canon, not just this page's preference: `README.md`,
-`examples/consumer-workflow.yml`, `docs/consumer-setup.md`, this page and
-`tests/test_workflow_contract.py` are promoted together, and the tests assert
-the pin in each, so one cannot drift back to an older tag with CI green.
+Callers on `v1.1.1` or older must move to `main` to receive the REST `merge_commit_sha` fix for open PRs.
 
 ### `contract_ref` is a different version axis
 
@@ -198,8 +182,7 @@ block at the tag you pinned, in the same sitting, and compare the exact names.
 
 Defined once, in the Cross-Repo Access Standard:
 
-> `sparxstar-product-specification-registry` →
-> `specs/_platform/SPARXSTAR-CROSS-REPO-ACCESS-STANDARD.md`
+> [Canonical cross-repo access document](https://github.com/Starisian-Technologies/sparxstar-code-conformance/blob/main/cross-repo/cross-repo-access-and-installation.md)
 
 Do not restate the mint block in your repo. Link to it.
 
@@ -207,7 +190,7 @@ Do not restate the mint block in your repo. Link to it.
 `@v3`, because they are where a third-party action executes holding
 `COMPOSER_RESOLVER_PRIVATE_KEY` — a moved major tag there would run arbitrary
 code with a platform credential. A consumer pinning `@vX.Y.Z` inherits
-whatever that tag's nested actions were: the pin ships from `v1.1.2` onward,
+whatever that tag's nested actions were: the pin is present on `main`,
 and `v1.1.1` and earlier still resolve `@v3` at both mint steps.
 
 ---

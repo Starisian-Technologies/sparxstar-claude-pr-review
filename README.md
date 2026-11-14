@@ -20,7 +20,7 @@ Every identifier below is read from this repo's live `.github/workflows/claude-p
 ### 0. Prerequisites (do this first — the gate cannot run without it)
 This gate mints GitHub App tokens to clone two **private** registries, so org-level setup must exist before any consumer can call it:
 
-- **GitHub App — `composer-resolver` (required).** The mint steps use `actions/create-github-app-token` SHA-pinned at `bcd2ba49218906704ab6c1aa796996da409d3eb1` (`# v3.2.0`, `owner: Starisian-Technologies`) — pinned rather than `@v3` because those steps hold the App private key to mint installation tokens for `sparxstar-architecture-governance-registry` and `sparxstar-product-specification-registry`. It ships from `v1.1.2` onward; `v1.1.1` and earlier carry the moving `@v3` alias at both mint steps — see [`SETUP.md`](./SETUP.md) → Supply chain. The consuming org must have **composer-resolver** installed and scoped to **both** repos with **Contents: Read** (the gate only reads them — there is no write/push App). Verify in **org Settings → GitHub Apps → composer-resolver → Repository access**. An App existing org-wide is *not* the same as being scoped to these two repos — that mismatch is the most common misconfiguration, and it surfaces at the registry checkout as an opaque `repository not found`, not a clear "scope the App" message.
+- **GitHub App — `composer-resolver` (required).** The mint steps use `actions/create-github-app-token` SHA-pinned at `bcd2ba49218906704ab6c1aa796996da409d3eb1` (`# v3.2.0`, `owner: Starisian-Technologies`) — pinned rather than `@v3` because those steps hold the App private key to mint installation tokens for `sparxstar-architecture-governance-registry` and `sparxstar-product-specification-registry`. It is present on `main`; `v1.1.1` and earlier carry the moving `@v3` alias at both mint steps — see [`SETUP.md`](./SETUP.md) → Supply chain. The consuming org must have **composer-resolver** installed and scoped to **both** repos with **Contents: Read** (the gate only reads them — there is no write/push App). Verify in **org Settings → GitHub Apps → composer-resolver → Repository access**. An App existing org-wide is *not* the same as being scoped to these two repos — that mismatch is the most common misconfiguration, and it surfaces at the registry checkout as an opaque `repository not found`, not a clear "scope the App" message.
 - **Secrets** (Settings → Secrets and variables → Actions → **Secrets**): `ANTHROPIC_API_KEY` and `COMPOSER_RESOLVER_PRIVATE_KEY`.
 - **Variable** (same screen → **Variables**, *not* Secrets): `COMPOSER_RESOLVER_CLIENT_ID` — holds the App **client-id string** (`actions/create-github-app-token` v3 takes `client-id:`; the legacy `app-id` is also accepted, but this workflow passes `client-id`). It must be a **Variable**, not a Secret: the mint reads it via the `vars` context, so a value placed in a Secret slot is invisible to `vars.COMPOSER_RESOLVER_CLIENT_ID` and reads as empty. A missing or misplaced value is **not** a silent failure — the `Validate composer-resolver configuration` step fails fast with an explicit "COMPOSER_RESOLVER_CLIENT_ID variable is not set" error before any token is minted.
 - **Who provisions:** App install + org secret/variable creation need org-admin. A missing prerequisite surfaces as "repository not found" or an empty-credential error at the mint/checkout step — not a clear "you forgot to install the App." Check prerequisites first on any auth failure.
@@ -28,14 +28,15 @@ This gate mints GitHub App tokens to clone two **private** registries, so org-le
 ### 1. What this gate does
 `claude-pr-review.yml` is a reusable workflow that reviews a pull request against the platform's ADRs and product specs. It fetches those contracts from the two private registries, sends the PR diff plus that context to the Anthropic Messages API, and upserts a single review comment with a PASS / FAIL / CONDITIONAL verdict. It is **advisory** — the comment is the deliverable; a FAIL verdict does not fail the job or block merge.
 
-### 2. The `uses:` line and which tag to pin
-Pin an **immutable release tag** — the current platform default is **`v1.1.2`**. There is **no `@v1` moving alias** published, so don't pin `@v1` (it won't resolve); `git ls-remote --tags origin` lists the release tags that currently exist. Pin the immutable release tag:
+### 2. Reviewer reference
+Follow **`@main`** for the reviewer (owner ruling, 2026-11-14). Reviewed
+merges update consumers immediately; releases are published after merge for
+audit history, without consumer tag bumps. This overrides older release-pin
+guidance for this reviewer only. Registry `contract_ref` remains a release tag.
 
 ```yaml
-uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.2
+uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@main
 ```
-
-Do not reference `@v1` (not published) or `@main` (moving branch). Future releases require a new pin.
 
 ### 3. Inputs (`on.workflow_call.inputs`)
 - `contract_ref` — *optional* (`required: false`), string, default `v1.0.0`. Git ref (tag) of the ADR + product-spec **registries** to review against. Validated here only for safe ref *shape*; the registry checkout fails if the tag doesn't exist on the registries. This gate does **not** enforce a version floor. The default resolves only if the registries actually carry a `v1.0.0` tag.
@@ -73,7 +74,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@v1.1.2
+    uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@main
     with:
       contract_ref: v1.0.0          # ← must name a tag that exists on the registries
     secrets:
@@ -82,7 +83,7 @@ jobs:
 ```
 
 ### 7. The sequencing rule (cross-repo)
-Secrets don't auto-inherit across the `workflow_call` boundary: this reusable workflow must **declare** a secret under `on.workflow_call.secrets` before a consumer can pass it, and this repo must **re-tag** afterward so the pinned tag contains the declaration. Both `ANTHROPIC_API_KEY` and `COMPOSER_RESOLVER_PRIVATE_KEY` have been declared since `v1.1.0`, so a consumer pinning `@v1.1.2` and passing both is consistent. A future change to the declared secrets requires cutting a new tag before consumers can pin it and pass them.
+Secrets do not cross `workflow_call` automatically. Declare new secrets on the reviewer’s `main` before updating callers, and pass only named secrets. Both `ANTHROPIC_API_KEY` and `COMPOSER_RESOLVER_PRIVATE_KEY` are required.
 
 ## Workflow behavior
 The workflow runs as two jobs to keep the privileged registry credential away from untrusted PR-head code (see [Determinism and safeguards](#determinism-and-safeguards)):
@@ -100,11 +101,11 @@ The workflow runs as two jobs to keep the privileged registry credential away fr
 The reviewer only reads the registries — there is no contract-sync or write-back.
 
 ## Determinism and safeguards
-- Callers must use the `pull_request` trigger. **`push`, `workflow_dispatch` and every other event without a pull request number fail**: the `Get PR diff` step exits 1 when the event payload carries none, so such a run stops before any review is produced (the step's own error text names `workflow_dispatch`). It stops in `review`, though — `build-context` has already done its privileged work by then; see the failure-handling note below. **`pull_request_target` is forbidden but NOT blocked** — it supplies `github.event.pull_request.number` just as `pull_request` does, so it passes that same check and the review job runs, checking out the PR test-merge with a read-write token in the base-repo context. There is no event-name guard in this workflow; `workflow_call` does not restrict the invoking event, and nothing here rejects `pull_request_target` at runtime. Not using it is the caller's responsibility
+- Only `pull_request` events with a positive PR number are accepted. The request guard rejects `pull_request_target`, `workflow_dispatch` and `push` before minting registry tokens or fetching private context.
 - **Privilege split (CodeQL hardening):** the composer-resolver GitHub App key — the only credential that can reach private registries — lives solely in the `build-context` job, which never checks out PR-head code. The `review` job checks out PR-head code but holds no App key and only *reads* those files as data (no build/install/script execution); trusted context crosses between jobs via artifact only
 - **Private callers only:** the trusted context (private ADR/spec content) is staged as a workflow artifact, which would be downloadable by anyone on a public repository. `build-context` fails fast (before minting any token) unless the caller repository is private
 - Diff truncation at 80KB and context truncation at 50KB with explicit notices; authoritative ADR/spec/reference context is placed first so it survives the cap, and trailing repo-local context is truncated first
-- **Failure handling, and where it actually happens.** A public caller repository, unset composer-resolver configuration and an empty or malformed `contract_ref` all fail in `build-context` before any token is minted — those are genuinely fail-fast. A missing pull request number, an empty diff and a missing `ANTHROPIC_API_KEY` are checked in `review`, which declares `needs: build-context`. So a `push` or `workflow_dispatch` run has already minted both App tokens, checked out both private registries and uploaded the trusted-context artifact by the time it stops. No review is produced, but the privileged work is not skipped, and calling that fail-fast overstates it
+- Invalid events, missing PR numbers, missing API keys, public callers, unset resolver configuration and malformed registry refs fail in `build-context` before token minting. Empty diffs fail later in `review`.
 - Scoped GitHub token permissions and no credential persistence on checkout
 
 ## Governance and standards files

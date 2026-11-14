@@ -339,30 +339,30 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("fetch-specs.yml", self.consumer_example)
         self.assertIn("needs: fetch-specs", self.consumer_example)
 
-    def test_consumer_example_pins_immutable_tag_and_passes_resolver_secret(self) -> None:
-        # Platform convention: pin the immutable release tag, not @v1 or @main.
-        self._assert_claude_workflow_pinned_to(self.consumer_example, "v1.1.2")
+    def test_consumer_example_pins_main_and_passes_resolver_secret(self) -> None:
+        # Owner ruling: follow the reviewed main branch for the reviewer.
+        self._assert_claude_workflow_pinned_to(self.consumer_example, "main")
         self.assertIn("COMPOSER_RESOLVER_PRIVATE_KEY: ${{ secrets.COMPOSER_RESOLVER_PRIVATE_KEY }}", self.consumer_example)
         self.assertIn("contract_ref: v1.0.0", self.consumer_example)
 
-    def test_readme_pins_immutable_tag_and_documents_resolver_requirements(self) -> None:
-        self._assert_claude_workflow_pinned_to(self.readme, "v1.1.2")
+    def test_readme_pins_main_and_documents_resolver_requirements(self) -> None:
+        self._assert_claude_workflow_pinned_to(self.readme, "main")
         self.assertIn("COMPOSER_RESOLVER_PRIVATE_KEY", self.readme)
         self.assertIn("COMPOSER_RESOLVER_CLIENT_ID", self.readme)
         self.assertIn("contract_ref", self.readme)
 
-    def test_consumer_setup_doc_pins_same_immutable_tag(self) -> None:
+    def test_consumer_setup_doc_pins_same_main_ref(self) -> None:
         # docs/consumer-setup.md carries its own copy-paste caller. Unasserted,
         # it could drift back to an older tag while README and the example
         # stayed current, and CI would stay green — which is how the pin got
         # out of step across this repo's docs in the first place.
-        self._assert_claude_workflow_pinned_to(self.consumer_setup, "v1.1.2")
+        self._assert_claude_workflow_pinned_to(self.consumer_setup, "main")
 
-    def test_setup_router_pins_same_immutable_tag(self) -> None:
+    def test_setup_router_pins_same_main_ref(self) -> None:
         # SETUP.md recommends a pin in prose rather than a `uses:` line, so it
         # is checked by content: the recommended tag must be the current one,
         # and the superseded tag must not still be presented as the pin.
-        self.assertIn("**Pin `@v1.1.2`.**", self.setup_md)
+        self.assertIn("**Pin `@main`.**", self.setup_md)
         for superseded in ("v1.1.1", "v1.1.0"):
             self.assertNotIn(f"**Pin `@{superseded}`.**", self.setup_md)
 

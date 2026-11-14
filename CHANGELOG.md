@@ -6,6 +6,14 @@ The format is based on Keep a Changelog and follows semantic-versioning release 
 
 ## [Unreleased]
 
+### Changed
+- Follow reviewer `@main` per the 2026-11-14 owner ruling; releases follow reviewed merges.
+- Cancel superseded runs including context preparation; reject invalid events and missing API keys before registry access.
+- Bound API connection and request time; reject incomplete or empty review responses and join all returned text blocks.
+- Remove stale prompt rules that contradict accepted platform guidance; guard prompt and response output paths against planted symlinks.
+- Keep the direct Messages API path; agent actions and browser tests are not needed for this read-only workflow. Centralization remains a separate proposed architecture change.
+
+
 ## [1.1.2] - 2026-11-08
 Patch release. Consumers on `v1.1.1` or older should bump: the `review` job in `v1.1.1` fails on every open pull request (see the `merge_commit_sha` entry under Fixed). The `on.workflow_call` interface — both inputs, both required secrets — is unchanged from `v1.1.1`, so the bump is a drop-in.
 

@@ -23,11 +23,18 @@ This repository provides a reusable GitHub Actions workflow that performs Claude
 ## Failure model
 `build-context` is fail-fast, before any token is minted, for:
 - A public caller repository
+- An unsupported event (including `pull_request_target`) or invalid PR number
+- A missing Anthropic API key
 - Unset composer-resolver configuration
 - An empty or malformed `contract_ref` (`Validate contract_ref`)
 
 `review` declares `needs: build-context`, so the checks below run only after both App tokens have been minted, the registries checked out and the trusted-context artifact uploaded. They stop the run; they do not make it fail fast:
-- Missing PR context
 - Empty diff
-- Missing or invalid Anthropic API key
+- Invalid Anthropic API key
 - API request failure
+- Incomplete, malformed or empty API response
+
+Concurrency applies to the entire workflow, so a newer run cancels obsolete
+context preparation as well as the review. The API call has a 10-second connect
+timeout and a 180-second total timeout. Requests are not automatically retried:
+an ambiguous timeout may already have incurred API usage.

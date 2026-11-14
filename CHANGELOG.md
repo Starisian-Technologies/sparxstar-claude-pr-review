@@ -90,3 +90,5 @@ Patch release. Consumers on `v1.1.1` or older should bump: the `review` job in `
 - `sparxstar-specs.yml` is read from the PR base commit only, never the PR-head working tree — a fork PR cannot expand its own review scope by editing its own declaration, and a missing/unreadable file is treated as "no declaration" rather than falling back to untrusted content.
 - Artifact directories (`.spx-trusted-context`, `.spx-specs-artifact`) are wiped and checked for symlinks before every download, so a PR-head pre-planted symlink or directory cannot inject content into the trusted context even when a download fails.
 - The leftover-token guard now scans the prompt *template* before substitution rather than the rendered prompt, avoiding false positives from `${PATH}`-like patterns appearing in diff or spec content.
+
+Missing Anthropic keys produce a successful skip with a warning and job summary; registry fetching and review are skipped. A skip is not a completed review.

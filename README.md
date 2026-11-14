@@ -143,3 +143,5 @@ Check that caller repository context files are current and relevant.
 Update `.github/workflows/claude-pr-review.yml` and corresponding docs in the same pull request.
 
 Maintained by [Starisian Technologies](https://github.com/Starisian-Technologies).
+
+Missing Anthropic keys produce a successful skip with a warning and job summary; registry fetching and review are skipped. A skip is not a completed review.

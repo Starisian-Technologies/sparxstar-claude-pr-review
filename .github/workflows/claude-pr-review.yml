@@ -62,6 +62,8 @@ jobs:
   # never `pull_request_target`: the latter would run the review job with a
   # read-write token in the base-repo context while checking out PR-head code.
   build-context:
+    outputs:
+      enabled: ${{ steps.request.outputs.enabled }}
     name: Build trusted review context
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -94,6 +96,7 @@ jobs:
       # cross-repo write or sync capability. This runs in the privileged
       # job that never sees PR-head code.
       - name: Validate review request
+        id: request
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -105,11 +108,15 @@ jobs:
             exit 1
           fi
           if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-            echo "::error::ANTHROPIC_API_KEY secret is not set."
-            exit 1
+            echo "::warning::Claude review skipped: ANTHROPIC_API_KEY is not set."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "### Claude review skipped — API key is missing; no review was performed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
 
       - name: Validate composer-resolver configuration
+        if: steps.request.outputs.enabled == 'true'
         env:
           COMPOSER_RESOLVER_CLIENT_ID: ${{ vars.COMPOSER_RESOLVER_CLIENT_ID }}
           COMPOSER_RESOLVER_PRIVATE_KEY: ${{ secrets.COMPOSER_RESOLVER_PRIVATE_KEY }}
@@ -131,6 +138,7 @@ jobs:
       # not in this judgment layer. This is the only place contract_ref is
       # consumed, so registry checkouts reference the validated output.
       - name: Validate contract_ref
+        if: steps.request.outputs.enabled == 'true'
         id: contract
         env:
           CONTRACT_REF: ${{ inputs.contract_ref }}
@@ -158,6 +166,7 @@ jobs:
           echo "ref=$CONTRACT_REF" >> "$GITHUB_OUTPUT"
 
       - name: Mint ADR read token
+        if: steps.request.outputs.enabled == 'true'
         id: adr-token
         # SHA-pinned: this job holds COMPOSER_RESOLVER_PRIVATE_KEY, so a retagged
         # @v3 would execute with a platform credential. Re-resolve with
@@ -170,6 +179,7 @@ jobs:
           repositories: sparxstar-architecture-governance-registry
 
       - name: Mint spec read token
+        if: steps.request.outputs.enabled == 'true'
         id: spec-token
         # SHA-pinned: this job holds COMPOSER_RESOLVER_PRIVATE_KEY, so a retagged
         # @v3 would execute with a platform credential. Re-resolve with
@@ -187,6 +197,7 @@ jobs:
       # object — the tag cannot move under the job between resolution and
       # checkout. Fails closed if either repo has no matching tag/branch.
       - name: Resolve contract ref SHAs
+        if: steps.request.outputs.enabled == 'true'
         id: contract-shas
         env:
           CONTRACT_REF: ${{ steps.contract.outputs.ref }}
@@ -244,6 +255,7 @@ jobs:
       # branch name) avoids ever handing checkout a ref that only exists in
       # the caller's repository (e.g. refs/pull/<n>/merge).
       - name: Checkout platform reference docs
+        if: steps.request.outputs.enabled == 'true'
         uses: actions/checkout@v5
         with:
           repository: Starisian-Technologies/sparxstar-claude-pr-review
@@ -253,6 +265,7 @@ jobs:
           path: .spx-workflow-repo
 
       - name: Checkout ADR registry
+        if: steps.request.outputs.enabled == 'true'
         uses: actions/checkout@v5
         with:
           repository: Starisian-Technologies/sparxstar-architecture-governance-registry
@@ -263,6 +276,7 @@ jobs:
           path: .spx-adr-registry
 
       - name: Checkout product-spec registry
+        if: steps.request.outputs.enabled == 'true'
         uses: actions/checkout@v5
         with:
           repository: Starisian-Technologies/sparxstar-product-specification-registry
@@ -273,6 +287,7 @@ jobs:
           path: .spx-spec-registry
 
       - name: Assemble trusted context
+        if: steps.request.outputs.enabled == 'true'
         run: |
           set -euo pipefail
 
@@ -307,6 +322,7 @@ jobs:
           done
 
       - name: Upload trusted context
+        if: steps.request.outputs.enabled == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: spx-trusted-context
@@ -319,6 +335,7 @@ jobs:
 
   review:
     name: Claude Code Review
+    if: needs.build-context.outputs.enabled == 'true'
     needs: build-context
     runs-on: ubuntu-latest
     timeout-minutes: 20

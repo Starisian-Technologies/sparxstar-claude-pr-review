@@ -32,6 +32,8 @@ jobs:
       contents: read
       pull-requests: write
     # Follow reviewed main (owner ruling, 2026-11-14).
+    # Every merge is adopted immediately with this caller’s credentials.
+    # Consumers trust this repository’s protected review/merge process.
     uses: Starisian-Technologies/sparxstar-claude-pr-review/.github/workflows/claude-pr-review.yml@main
     with:
       # Tag of the ADR / product-spec registries to review against. Pin a real

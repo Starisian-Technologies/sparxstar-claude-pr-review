@@ -38,3 +38,5 @@ Concurrency applies to the entire workflow, so a newer run cancels obsolete
 context preparation as well as the review. The API call has a 10-second connect
 timeout and a 180-second total timeout. Requests are not automatically retried:
 an ambiguous timeout may already have incurred API usage.
+
+Missing Anthropic keys produce a successful skip with a warning and job summary; registry fetching and review are skipped. A skip is not a completed review.

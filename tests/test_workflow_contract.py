@@ -364,6 +364,7 @@ class WorkflowContractTests(unittest.TestCase):
         # and the superseded tag must not still be presented as the pin.
         self.assertIn("**Pin `@main`.**", self.setup_md)
         for superseded in ("v1.1.2", "v1.1.1", "v1.1.0"):
+            self.assertNotIn(f"**Pin `@{superseded}`.**", self.setup_md)
 
     def test_ci_cd_doc_matches_permission_contract(self) -> None:
         self.assertIn("contents: read", self.docs_ci_cd)

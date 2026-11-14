@@ -27,14 +27,15 @@ class ReviewGuardsTests(unittest.TestCase):
             ('push', '', 'test-key', False),
             ('pull_request', '0', 'test-key', False),
             ('pull_request', 'abc', 'test-key', False),
-            ('pull_request', '42', '', False),
+            ('pull_request', '42', '', True),
         ]
         for event, number, key, valid in cases:
             with self.subTest(event=event, number=number, key_present=bool(key)):
                 result = subprocess.run(
                     ['bash', '-c', step_script('Validate review request')],
                     env={**os.environ, 'EVENT_NAME': event, 'PR_NUMBER': number,
-                         'ANTHROPIC_API_KEY': key}, capture_output=True, text=True)
+                         'ANTHROPIC_API_KEY': key, 'GITHUB_OUTPUT': '/dev/null',
+                         'GITHUB_STEP_SUMMARY': '/dev/null'}, capture_output=True, text=True)
                 self.assertEqual(result.returncode == 0, valid, result.stdout)
 
     def test_preflight_precedes_registry_token_minting(self):
